@@ -16,7 +16,7 @@ const app = express();
 // CORS configuration
 app.use(
     cors({
-        origin: config.frontendUrl,
+        origin: true,
         credentials: true, // Allow cookies
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
