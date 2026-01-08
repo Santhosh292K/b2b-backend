@@ -18,7 +18,7 @@ const createAppointment = async (req, res) => {
                 message: 'Doctor ID and requested date are required',
             });
         }
-
+        new Date().toISOString().split('T')[0]
         // Verify doctor exists
         const doctor = await User.findById(doctorId);
         if (!doctor || doctor.role !== 'doctor') {
