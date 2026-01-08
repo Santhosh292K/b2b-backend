@@ -21,7 +21,7 @@ const app = express();
 // CORS configuration
 app.use(
     cors({
-        origin: true,
+        origin: 'https://medconnectlive.vercel.app',
         credentials: true, // Allow cookies
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
