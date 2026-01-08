@@ -10,6 +10,8 @@ const authenticate = async (req, res, next) => {
         // Get token from cookie
         const accessToken = req.cookies.accessToken;
 
+        console.log('Access Token:', accessToken);
+
         if (!accessToken) {
             return res.status(401).json({
                 success: false,
