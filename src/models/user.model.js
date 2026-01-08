@@ -45,9 +45,14 @@ const userSchema = new mongoose.Schema(
         },
         role: {
             type: String,
-            enum: ['doctor', 'patient'],
+            enum: ['doctor', 'patient', 'admin'],
             default: 'patient',
             required: true
+        },
+        specialization: {
+            type: String,
+            trim: true,
+            default: null, // Only for doctors - e.g., 'Cardiology', 'Dermatology', etc.
         },
         assignedDoctor: {
             type: mongoose.Schema.Types.ObjectId,
