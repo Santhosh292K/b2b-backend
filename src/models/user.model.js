@@ -23,9 +23,25 @@ const userSchema = new mongoose.Schema(
         },
         password: {
             type: String,
-            required: [true, 'Password is required'],
             minlength: [8, 'Password must be at least 8 characters'],
             select: false, // Don't include password in queries by default
+            required: function () {
+                // Password is required only for local auth
+                return this.authProvider === 'local';
+            },
+        },
+        googleId: {
+            type: String,
+            unique: true,
+            sparse: true, // Allows multiple null values
+        },
+        authProvider: {
+            type: String,
+            enum: ['local', 'google'],
+            default: 'local',
+        },
+        profilePicture: {
+            type: String,
         },
         refreshTokens: [
             {

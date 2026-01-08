@@ -1,8 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const config = require('./config/env');
 const authRoutes = require('./routes/auth.routes');
+const oauthRoutes = require('./routes/oauth.routes');
+const passport = require('./config/passport');
 const { errorHandler, notFound } = require('./middleware/error.middleware');
 
 const app = express();
@@ -23,6 +26,24 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Cookie parser middleware
 app.use(cookieParser());
+
+// Session middleware (required for Passport)
+app.use(
+    session({
+        secret: config.sessionSecret,
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+            secure: config.isProduction,
+            httpOnly: true,
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        },
+    })
+);
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Security headers
 app.use((req, res, next) => {
@@ -47,6 +68,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/oauth', oauthRoutes);
 
 // 404 handler
 app.use(notFound);
