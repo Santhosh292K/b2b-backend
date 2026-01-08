@@ -1,15 +1,35 @@
-const nodemailer = require("nodemailer");
+const axios = require("axios");
 
-// Set up Brevo as the transport for Nodemailer
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-  port: process.env.SMTP_PORT || 587,
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.BREVO_SMTP_USER,
-    pass: process.env.BREVO_SMTP_PASS,
-  },
-});
+// Send email via Brevo Transactional Email API
+const sendBrevoEmail = async ({ to, subject, html }) => {
+    const apiKey = process.env.BREVO_API_KEY;
+    const senderEmail = process.env.DEFAULT_FROM_EMAIL;
+    const senderName = process.env.EMAIL_FROM_NAME || "Clinical Visit System";
+
+    if (!apiKey) {
+        throw new Error("BREVO_API_KEY not configured");
+    }
+    if (!senderEmail) {
+        throw new Error("DEFAULT_FROM_EMAIL not configured");
+    }
+
+    const payload = {
+        sender: { email: senderEmail, name: senderName },
+        to: to.map((email) => ({ email })),
+        subject,
+        htmlContent: html,
+    };
+
+    const res = await axios.post("https://api.brevo.com/v3/smtp/email", payload, {
+        headers: { "api-key": apiKey, "Content-Type": "application/json" },
+        timeout: 15000,
+    });
+
+    return {
+        messageId: res.data?.messageId || res.data?.messageId || undefined,
+        raw: res.data,
+    };
+};
 
 /**
  * Email service for sending appointment notifications
@@ -581,118 +601,75 @@ const getForgotPasswordEmailTemplate = (resetLink) => {
  * @returns {Promise<object>} - Email sending results
  */
 const sendAppointmentAcceptedEmail = async (doctorEmail, patientEmail, appointmentDetails) => {
-    // If transporter is not configured, log to console
-    if (!transporter) {
-        console.log('📧 Email would be sent (not configured):');
-        console.log(`   To Doctor: ${doctorEmail}`);
-        console.log(`   To Patient: ${patientEmail}`);
-        console.log(`   Appointment: ${appointmentDetails.patientName} with Dr. ${appointmentDetails.doctorName}`);
-        return {
-            success: false,
-            message: 'Email not configured',
-        };
-    }
-
-    const fromAddress = process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_USER;
-    const fromName = process.env.EMAIL_FROM_NAME || 'Clinical Visit System';
-
     try {
-        // Send email to doctor
-        const mailOptions = {
-            from: process.env.DEFAULT_FROM_EMAIL,
-            to: doctorEmail,
+        const doctorHtml = getDoctorEmailTemplate(appointmentDetails);
+        const patientHtml = getPatientEmailTemplate(appointmentDetails);
+
+        const doctorRes = await sendBrevoEmail({
+            to: [doctorEmail],
             subject: `New Appointment Confirmed - ${appointmentDetails.patientName}`,
-            html: getDoctorEmailTemplate(appointmentDetails),
-        };
-        
-        const doctorEmailResult = await transporter.sendMail(mailOptions);
+            html: doctorHtml,
+        });
 
         console.log('✅ Email sent to doctor:', doctorEmail);
 
-        // Send email to patient
-        const patientEmail = {
-            from: process.env.DEFAULT_FROM_EMAIL,
-            to: patientEmail,
+        const patientRes = await sendBrevoEmail({
+            to: [patientEmail],
             subject: `Appointment Confirmed with Dr. ${appointmentDetails.doctorName}`,
-            html: getPatientEmailTemplate(appointmentDetails),
-        };
-
-        const patientEmailResult = await transporter.sendMail(patientEmail);
+            html: patientHtml,
+        });
 
         console.log('✅ Email sent to patient:', patientEmail);
 
         return {
             success: true,
-            doctorEmailId: doctorEmailResult.messageId,
-            patientEmailId: patientEmailResult.messageId,
+            doctorEmailId: doctorRes.messageId,
+            patientEmailId: patientRes.messageId,
         };
     } catch (error) {
-        console.error('❌ Failed to send appointment emails:', error.message);
+        console.error('❌ Failed to send appointment emails:', error.message || error);
         throw error;
     }
 };
 
 const sendCreateDoctorAccountEmail = async (doctorEmail, tempPassword) => {
-    // If transporter is not configured, log to console
-    if (!transporter) {
-        console.log('📧 Email would be sent (not configured):')
-        console.log(`   To Doctor: ${doctorEmail}`)
-        return {
-            success: false,
-            message: 'Email not configured',
-        };
-    }
-
     try {
-        const mailOptions = {
-            from: process.env.DEFAULT_FROM_EMAIL,
-            to: doctorEmail,
+        const html = getDoctorAccountCreationEmailTemplate(doctorEmail, tempPassword);
+        const res = await sendBrevoEmail({
+            to: [doctorEmail],
             subject: 'Your Doctor Account Has Been Created - Login Credentials',
-            html: getDoctorAccountCreationEmailTemplate(doctorEmail, tempPassword),
-        };
-
-        const doctorEmailResult = await transporter.sendMail(mailOptions);
+            html,
+        });
 
         console.log('✅ Email sent to doctor:', doctorEmail);
 
         return {
             success: true,
-            emailId: doctorEmailResult.messageId,
+            emailId: res.messageId,
         };
     } catch (error) {
-        console.error('❌ Failed to send doctor account creation email:', error.message);
+        console.error('❌ Failed to send doctor account creation email:', error.message || error);
         throw error;
     }
 };
 
 const sendForgotPasswordEmail = async (userEmail, resetLink) => {
-    if (!transporter) {
-        console.log('📧 Email would be sent (not configured):');
-        console.log(`   To User: ${userEmail}`)
-        console.log(`   Reset Link: ${resetLink}`)
-        return {
-            success: false,
-            message: 'Email not configured',
-        }
-    }
-
     try {
-        const mailOptions = {
-            from: process.env.DEFAULT_FROM_EMAIL,
-            to: userEmail,
+        const html = getForgotPasswordEmailTemplate(resetLink);
+        const res = await sendBrevoEmail({
+            to: [userEmail],
             subject: 'Password Reset Request',
-            html: getForgotPasswordEmailTemplate(resetLink),
-        };
+            html,
+        });
 
-        const emailResult = await transporter.sendMail(mailOptions);
         console.log('✅ Forgot password email sent to user:', userEmail);
 
         return {
             success: true,
-            emailId: emailResult.messageId,
+            emailId: res.messageId,
         };
     } catch (error) {
-        console.error('❌ Failed to send forgot password email:', error.message);
+        console.error('❌ Failed to send forgot password email:', error.message || error);
         throw error;
     }
 };
