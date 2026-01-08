@@ -8,6 +8,8 @@ const User = require('../models/user.model');
 const authenticate = async (req, res, next) => {
     try {
         // Get token from cookie
+        console.log(req);
+        console.log('Cookies:', req.cookies);
         const accessToken = req.cookies.accessToken;
 
         console.log('Access Token:', accessToken);
